@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Numpad from "@/components/Numpad";
 import Summary from "@/components/Summary";
+import { beep } from "@/lib/beep";
 import { generateDrill } from "@/lib/drill/generate";
 import { formatQuestion } from "@/lib/drill/format";
 import { initState, sanitizeInput, shouldAutoSubmit, startDrill, submitAnswer, type DrillState } from "@/lib/drill/machine";
@@ -26,7 +27,7 @@ export default function Drill({ signedIn }: { signedIn: boolean }) {
   const router = useRouter();
   const [state, setState] = useState<DrillState | null>(null);
   const [typed, setTyped] = useState("");
-  const [flash, setFlash] = useState(false);
+  const [wrong, setWrong] = useState(false);
   const [save, setSave] = useState<SaveStatus>("idle");
   const inputRef = useRef<HTMLInputElement>(null);
   const clientId = useRef("");
@@ -35,6 +36,7 @@ export default function Drill({ signedIn }: { signedIn: boolean }) {
   function start() {
     setState(startDrill(initState(generateDrill(Math.random)), performance.now()));
     setTyped("");
+    setWrong(false);
     setSave("idle");
     run.current++;
     clientId.current = crypto.randomUUID();
@@ -55,11 +57,11 @@ export default function Drill({ signedIn }: { signedIn: boolean }) {
     if (!state || state.phase !== "running") return;
     const v = sanitizeInput(raw);
     const expected = state.questions[state.index].expected;
+    setWrong(false); // any edit clears the wrong mark
     if (!shouldAutoSubmit(v, expected)) { setTyped(v); return; }
     const r = submitAnswer(state, v, performance.now());
     setState(r.state);
-    setTyped("");
-    if (r.correct === false) { setFlash(true); setTimeout(() => setFlash(false), 300); }
+    if (r.correct === false) { setTyped(v); setWrong(true); beep(); } else setTyped("");
     if (r.correct && r.state.phase === "done") void persist(r.state.logs);
   }
 
@@ -105,9 +107,10 @@ export default function Drill({ signedIn }: { signedIn: boolean }) {
         autoComplete="off"
         autoFocus
         aria-label="Your answer"
-        className={`w-40 rounded-md border-2 px-3 py-2 text-center text-3xl tabular-nums focus:outline-none dark:bg-neutral-900 ${flash ? "border-red-500" : "border-neutral-300 focus:border-indigo-500 dark:border-neutral-700"}`}
+        aria-invalid={wrong}
+        className={`w-40 rounded-md border-2 px-3 py-2 text-center text-3xl tabular-nums focus:outline-none dark:bg-neutral-900 ${wrong ? "border-red-500 text-red-600" : "border-neutral-300 focus:border-indigo-500 dark:border-neutral-700"}`}
       />
-      <Numpad onDigit={(d) => { onInput(typed + d); inputRef.current?.focus(); }} onBackspace={() => setTyped((t) => t.slice(0, -1))} />
+      <Numpad onDigit={(d) => { onInput(typed + d); inputRef.current?.focus(); }} onBackspace={() => { setWrong(false); setTyped((t) => t.slice(0, -1)); }} />
     </div>
   );
 }

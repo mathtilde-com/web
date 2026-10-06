@@ -19,15 +19,33 @@ test("guest completes a 60-question drill and sees summary", async ({ page }) =>
   await expect(page.getByText(/sign up to save/i)).toBeVisible();
 });
 
-test("wrong answer of the right length keeps the same question", async ({ page }) => {
+test("wrong answer stays, is marked wrong until edited, and beeps once", async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as unknown as { __beeps: number }).__beeps = 0;
+    class FakeCtx {
+      currentTime = 0; destination = {}; state = "running";
+      resume() { return Promise.resolve(); }
+      createGain() { return { gain: { value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; }
+      createOscillator() { return { frequency: { value: 0 }, type: "sine", connect() {}, start() { (window as unknown as { __beeps: number }).__beeps++; }, stop() {} }; }
+    }
+    (window as unknown as { AudioContext: unknown }).AudioContext = FakeCtx;
+  });
   await page.goto("/drill");
   await page.getByRole("button", { name: "Start" }).click();
   const before = await page.getByTestId("question").innerText();
   const right = solve(before);
   const wrong = right % 10 === 9 ? right - 1 : right + 1;
-  await page.getByTestId("answer").pressSequentially(String(wrong));
-  await expect(page.getByTestId("answer")).toHaveValue("");
+  const input = page.getByTestId("answer");
+  await input.pressSequentially(String(wrong));
+  await expect(input).toHaveValue(String(wrong));
+  await expect(input).toHaveAttribute("aria-invalid", "true");
   expect(await page.getByTestId("question").innerText()).toBe(before);
+  expect(await page.evaluate(() => (window as unknown as { __beeps: number }).__beeps)).toBe(1);
+  await input.press("Backspace");
+  await expect(input).toHaveAttribute("aria-invalid", "false");
+  await input.press(String(right).slice(-1));
+  // replacing the last digit with the right one moves on to the next question (or ends the drill)
+  await expect(page.getByTestId("question")).not.toHaveText(before);
 });
 
 test("non-digit input is ignored", async ({ page }) => {
