@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 
 const GENDER_OPTIONS = [
@@ -14,6 +15,7 @@ const GENDER_OPTIONS = [
 const input = "w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100";
 
 export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -38,7 +40,7 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
       }
       const r = await signIn("credentials", { email, password, redirect: false });
       if (r?.error) setError("Invalid email or password");
-      else window.location.assign("/drill");
+      else { router.push("/drill"); router.refresh(); }
     } finally {
       setBusy(false);
     }
