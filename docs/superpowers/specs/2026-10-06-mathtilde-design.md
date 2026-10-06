@@ -14,7 +14,7 @@ Next.js (App Router, TypeScript, Tailwind), Neon Postgres via `@neondatabase/ser
   - `+`: a, b in 1..100.
   - `-`: a >= b, result >= 0 (a, b in 1..100).
   - `*`: a, b in 1..100 (max answer 10,000, fits SMALLINT).
-  - `/`: exact division only. Pick divisor b in 1..100 and quotient q such that a = b*q <= 100; num1 = a, num2 = b, answer = q (q >= 1).
+  - `/`: exact division only. Pick dividend a uniformly in 1..100, then a divisor b uniformly among the divisors of a; num1 = a, num2 = b, answer = a/b (>= 1). (Picking the divisor first would make about half of questions trivially `a/b = 1`.)
 - Q1 is an untimed warm-up: logged, but excluded from `total_duration_ms`. The clock starts when Q1 is answered correctly; `total_duration_ms` = sum of durations of Q2..Q60.
 - Input: numeric field, auto-focused; auto-submits when typed length equals the digit count of the expected answer. A wrong answer clears the field, increments `attempts_count`, timer keeps running. Advance only on a correct answer. On-screen numpad on touch devices.
 - Known tradeoff (accepted): auto-submit reveals the answer's digit count.
