@@ -3,6 +3,7 @@ import { isValidQuestion } from "./generate";
 import { DRILL_SIZE, MAX_QUESTION_MS, type QuestionLog } from "./types";
 
 const schema = z.object({
+  clientId: z.uuid(),
   questions: z.array(z.object({
     index: z.number().int(),
     num1: z.number().int(),
@@ -15,7 +16,7 @@ const schema = z.object({
 });
 
 export function validateDrillPayload(input: unknown):
-  | { ok: true; logs: QuestionLog[]; totalDurationMs: number }
+  | { ok: true; clientId: string; logs: QuestionLog[]; totalDurationMs: number }
   | { ok: false } {
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { ok: false };
@@ -27,5 +28,5 @@ export function validateDrillPayload(input: unknown):
     logs.push(log);
   }
   const totalDurationMs = logs.filter((l) => l.index >= 2).reduce((s, l) => s + l.durationMs, 0);
-  return { ok: true, logs, totalDurationMs };
+  return { ok: true, clientId: parsed.data.clientId, logs, totalDurationMs };
 }

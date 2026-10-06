@@ -44,3 +44,21 @@ test("signup page rejects short password", async ({ page }) => {
   await page.getByRole("button", { name: /sign up/i }).click();
   await expect(page.getByText(/at least 8/i)).toBeVisible();
 });
+
+// Needs a real database: run with DATABASE_URL set and migrations applied. Not run in CI without one.
+test("signup -> drill -> saved result", async ({ page }) => {
+  test.skip(!process.env.DATABASE_URL, "requires DATABASE_URL");
+  const email = `e2e-${Date.now()}@example.com`;
+  await page.goto("/signup");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill("correct-horse-1");
+  await page.getByRole("button", { name: /sign up/i }).click();
+  await page.waitForURL("**/drill");
+  await page.getByRole("button", { name: "Start" }).click();
+  for (let i = 0; i < 60; i++) {
+    const text = await page.getByTestId("question").innerText();
+    await page.getByTestId("answer").pressSequentially(String(solve(text)));
+  }
+  await page.waitForURL(/\/results\/[0-9a-f-]{36}/);
+  await expect(page.getByTestId("total-time")).toBeVisible();
+});

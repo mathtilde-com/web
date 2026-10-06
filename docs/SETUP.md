@@ -7,7 +7,7 @@
 5. **Cloudflare DNS** – `A @ → 76.76.21.21`, `CNAME www → cname.vercel-dns.com`, SSL/TLS mode **Full (strict)**. If certificate issuance fails, set the records to DNS-only until Vercel issues the cert.
 
 ## Known limits (v1)
-- The rate limiter is in-memory, so it is per server instance only.
+- The rate limiter is in-memory, so it is per server instance only (login failures are counted per IP+email and per IP).
 - No password reset or email verification.
 - Birth date and gender are set at signup and can't be edited afterwards; benchmarks need both.
 - Benchmarks compare your all-time best with each cohort member's best in your current 5-year age band.

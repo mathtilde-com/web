@@ -8,22 +8,19 @@ import Summary from "@/components/Summary";
 import { generateDrill } from "@/lib/drill/generate";
 import { formatQuestion } from "@/lib/drill/format";
 import { initState, sanitizeInput, shouldAutoSubmit, startDrill, submitAnswer, type DrillState } from "@/lib/drill/machine";
+import { saveWithRetry } from "@/lib/drill/save";
 import { DRILL_SIZE, type QuestionLog } from "@/lib/drill/types";
 
-type SaveStatus = "idle" | "saving" | "error";
+type SaveStatus = "idle" | "saving" | "error" | "unauthenticated";
 
-async function postDrill(logs: QuestionLog[]): Promise<string | null | "failed"> {
-  const res = await fetch("/api/drills", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      questions: logs.map((l) => ({ index: l.index, num1: l.num1, num2: l.num2, operator: l.operator, expectedAnswer: l.expected, attempts: l.attempts, durationMs: l.durationMs })),
-    }),
-  });
-  if (res.status === 201) return (await res.json()).id as string;
-  if (res.status === 204) return null;
-  return "failed";
-}
+const send = (clientId: string, logs: QuestionLog[]) => fetch("/api/drills", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({
+    clientId,
+    questions: logs.map((l) => ({ index: l.index, num1: l.num1, num2: l.num2, operator: l.operator, expectedAnswer: l.expected, attempts: l.attempts, durationMs: l.durationMs })),
+  }),
+});
 
 export default function Drill({ signedIn }: { signedIn: boolean }) {
   const router = useRouter();
@@ -32,26 +29,26 @@ export default function Drill({ signedIn }: { signedIn: boolean }) {
   const [flash, setFlash] = useState(false);
   const [save, setSave] = useState<SaveStatus>("idle");
   const inputRef = useRef<HTMLInputElement>(null);
+  const clientId = useRef("");
+  const run = useRef(0);
 
   function start() {
     setState(startDrill(initState(generateDrill(Math.random)), performance.now()));
     setTyped("");
     setSave("idle");
+    run.current++;
+    clientId.current = crypto.randomUUID();
     queueMicrotask(() => inputRef.current?.focus());
   }
 
   async function persist(logs: QuestionLog[]) {
     if (!signedIn) return;
+    const mine = run.current;
     setSave("saving");
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const r = await postDrill(logs);
-        if (typeof r === "string" && r !== "failed") { router.replace(`/results/${r}`); return; }
-        if (r === null) { setSave("idle"); return; }
-      } catch { /* retry once */ }
-      await new Promise((res) => setTimeout(res, 1000));
-    }
-    setSave("error");
+    const r = await saveWithRetry(() => send(clientId.current, logs));
+    if (run.current !== mine) return; // a newer drill started; don't touch it
+    if (r.status === "saved") router.replace(`/results/${r.id}`);
+    else setSave(r.status === "unauthenticated" ? "unauthenticated" : "error");
   }
 
   function onInput(raw: string) {
@@ -87,8 +84,8 @@ export default function Drill({ signedIn }: { signedIn: boolean }) {
             Couldn&apos;t save. <button className="underline" onClick={() => void persist(state.logs)}>Retry</button>
           </p>
         )}
-        {!signedIn && <p className="text-sm"><Link href="/signup" className="text-indigo-600 underline">Sign up to save your results</Link> and track progress.</p>}
-        <button onClick={() => setState(null)} className="self-start rounded-md border border-neutral-300 px-4 py-2 dark:border-neutral-700">Play again</button>
+        {(!signedIn || save === "unauthenticated") && <p className="text-sm"><Link href="/signup" className="text-indigo-600 underline">Sign up to save your results</Link> and track progress.</p>}
+        <button disabled={save === "saving"} onClick={() => setState(null)} className="self-start rounded-md border border-neutral-300 px-4 py-2 disabled:opacity-50 dark:border-neutral-700">Play again</button>
       </div>
     );
   }

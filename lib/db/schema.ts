@@ -13,6 +13,7 @@ export interface SessionsDrillTable {
   user_id: string;
   total_duration_ms: number;
   rules_version: Generated<number>;
+  client_id: string | null;
   completed_at: ColumnType<Date, never, never>;
 }
 export interface QuestionLogsTable {

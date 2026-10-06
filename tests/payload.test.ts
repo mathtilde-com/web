@@ -4,7 +4,7 @@ import { generateDrill } from "@/lib/drill/generate";
 
 function payload() {
   let s = 42; const rng = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32);
-  return { questions: generateDrill(rng).map((q, i) => ({ index: i + 1, num1: q.num1, num2: q.num2, operator: q.operator, expectedAnswer: q.expected, attempts: 1, durationMs: 1500 })) };
+  return { clientId: "0b0f5f58-7b0e-4a3c-9b8e-6d1a2f3c4d5e", questions: generateDrill(rng).map((q, i) => ({ index: i + 1, num1: q.num1, num2: q.num2, operator: q.operator, expectedAnswer: q.expected, attempts: 1, durationMs: 1500 })) };
 }
 
 describe("validateDrillPayload", () => {
@@ -34,6 +34,12 @@ describe("validateDrillPayload", () => {
   test("accepts exactly 600000 ms", () => {
     const p = payload(); p.questions[10].durationMs = 600000;
     expect(validateDrillPayload(p).ok).toBe(true);
+  });
+  test("returns clientId and rejects a missing or non-uuid one", () => {
+    const r = validateDrillPayload(payload());
+    expect(r.ok && r.clientId).toBe("0b0f5f58-7b0e-4a3c-9b8e-6d1a2f3c4d5e");
+    expect(validateDrillPayload({ ...payload(), clientId: "nope" }).ok).toBe(false);
+    expect(validateDrillPayload({ questions: payload().questions }).ok).toBe(false);
   });
   test("rejects garbage", () => {
     expect(validateDrillPayload(null).ok).toBe(false);
